@@ -1,0 +1,109 @@
+name: JioPC OS Image Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_parts:
+        description: 'Parts to run (A, B, C or leave empty for all)'
+        required: false
+        default: 'C'
+      no_parallel:
+        description: 'Disable parallel execution'
+        required: false
+        default: 'false'
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb python3-pip firefox
+
+      - name: Install Python dependencies
+        run: |
+          pip3 install selenium psutil pyyaml pyxdg httpx \
+            --break-system-packages \
+            --ignore-installed \
+            --quiet
+
+      - name: Install geckodriver
+        run: |
+          GECKO_VER=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest \
+            | grep tag_name | cut -d'"' -f4)
+          curl -sL "https://github.com/mozilla/geckodriver/releases/download/${GECKO_VER}/geckodriver-${GECKO_VER}-linux64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin
+          geckodriver --version
+
+      - name: Set up desktop folders for Part C
+        run: |
+          mkdir -p ~/Desktop/Productivity ~/Desktop/Entertainment
+          python3 -c "
+          import yaml, os
+          with open('jiopc-agent.yaml') as f:
+              config = yaml.safe_load(f)
+          desktop_base = os.path.expanduser('~/Desktop')
+          for app in config['desktop_presence']:
+              folder = app.get('desktop_folder')
+              desktop_file = app['desktop_file']
+              if not folder or not os.path.exists(desktop_file):
+                  continue
+              folder_path = os.path.join(desktop_base, folder)
+              os.makedirs(folder_path, exist_ok=True)
+              link_path = os.path.join(folder_path, os.path.basename(desktop_file))
+              if not os.path.exists(link_path):
+                  os.symlink(desktop_file, link_path)
+          print('Desktop folders created')
+          "
+
+      - name: Run JioPC Testing Agent
+        run: |
+          PART_ARG=""
+          if [ -n "${{ github.event.inputs.run_parts }}" ]; then
+            PART_ARG="--part ${{ github.event.inputs.run_parts }}"
+          fi
+          PARALLEL_ARG=""
+          if [ "${{ github.event.inputs.no_parallel }}" = "true" ]; then
+            PARALLEL_ARG="--no-parallel"
+          fi
+          python3 jiopc_agent.py --config jiopc-agent.yaml $PART_ARG $PARALLEL_ARG
+        env:
+          DISPLAY: ':99'
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-log-${{ github.run_id }}
+          path: ~/.local/share/jiopc/agent/test_run_*.log
+          retention-days: 30
+
+      - name: Run LLM Analysis
+        if: always()
+        run: |
+          LOG=$(ls -t ~/.local/share/jiopc/agent/test_run_*.log | head -1)
+          python3 analyse.py --log "$LOG" --config jiopc-agent.yaml --no-email
+        env:
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+
+      - name: Post analysis as job summary
+        if: always()
+        run: |
+          LOG=$(ls -t ~/.local/share/jiopc/agent/test_run_*.log | head -1)
+          echo "## JioPC Agent Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -5 "$LOG" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

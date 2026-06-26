@@ -1,0 +1,27 @@
+{"ts": "2026-06-25T20:35:01.898875+00:00", "component": "C", "name": "Featherpad", "result": "PASS", "duration_ms": 1, "detail": "present, category='Utility', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.900207+00:00", "component": "C", "name": "Feathernotes", "result": "PASS", "duration_ms": 0, "detail": "present, category='Utility', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.901725+00:00", "component": "C", "name": "Audacious", "result": "PASS", "duration_ms": 1, "detail": "present, category='AudioVideo', folder='Entertainment'"}
+{"ts": "2026-06-25T20:35:01.902140+00:00", "component": "C", "name": "MPV", "result": "PASS", "duration_ms": 0, "detail": "present, category='AudioVideo', folder='Entertainment'"}
+{"ts": "2026-06-25T20:35:01.902934+00:00", "component": "C", "name": "Thunderbird", "result": "PASS", "duration_ms": 0, "detail": "present, category='Network', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.903349+00:00", "component": "C", "name": "QTerminal", "result": "PASS", "duration_ms": 0, "detail": "present, category='System', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.904033+00:00", "component": "C", "name": "PCManFM", "result": "PASS", "duration_ms": 0, "detail": "present, category='FileManager', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.904256+00:00", "component": "C", "name": "GNOME Calculator", "result": "PASS", "duration_ms": 0, "detail": "present, category='Utility', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.904586+00:00", "component": "C", "name": "GNOME Text Editor", "result": "PASS", "duration_ms": 0, "detail": "present, category='Utility', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.905198+00:00", "component": "C", "name": "LxQt Archiver", "result": "PASS", "duration_ms": 0, "detail": "present, category='Utility', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.905669+00:00", "component": "C", "name": "LxImage Qt", "result": "PASS", "duration_ms": 0, "detail": "present, category='Graphics', folder='Entertainment'"}
+{"ts": "2026-06-25T20:35:01.906135+00:00", "component": "C", "name": "Pavucontrol Qt", "result": "PASS", "duration_ms": 0, "detail": "present, category='AudioVideo', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.906701+00:00", "component": "C", "name": "QPS", "result": "PASS", "duration_ms": 0, "detail": "present, category='System', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.907038+00:00", "component": "C", "name": "Meteo Qt", "result": "PASS", "duration_ms": 0, "detail": "present, category='Network', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:01.908081+00:00", "component": "C", "name": "Gucharmap", "result": "PASS", "duration_ms": 0, "detail": "present, category='Utility', folder='Productivity'"}
+{"ts": "2026-06-25T20:35:07.980432+00:00", "component": "B", "name": "Featherpad", "result": "PASS", "duration_ms": 6014, "detail": "VmRSS=45.4MB CPU=1.0% binary=/usr/bin/featherpad"}
+{"ts": "2026-06-25T20:35:16.296735+00:00", "component": "B", "name": "Feathernotes", "result": "PASS", "duration_ms": 6015, "detail": "VmRSS=42.5MB CPU=0.0% binary=/usr/bin/feathernotes"}
+{"ts": "2026-06-25T20:35:24.454874+00:00", "component": "B", "name": "Audacious", "result": "PASS", "duration_ms": 6015, "detail": "VmRSS=47.8MB CPU=61.8% binary=/usr/bin/audacious"}
+{"ts": "2026-06-25T20:35:33.165996+00:00", "component": "B", "name": "QTerminal", "result": "PASS", "duration_ms": 6009, "detail": "VmRSS=43.3MB CPU=1.0% binary=/usr/bin/qterminal"}
+{"ts": "2026-06-25T20:35:42.182596+00:00", "component": "B", "name": "Gucharmap", "result": "PASS", "duration_ms": 6009, "detail": "VmRSS=41.8MB CPU=0.0% binary=/usr/bin/gucharmap"}
+{"ts": "2026-06-25T20:36:01.020295+00:00", "component": "A", "name": "JioSaavn", "result": "BLOCKED", "duration_ms": 6667, "detail": "bot detection challenge (expected) \u2014 loaded in 6145ms"}
+{"ts": "2026-06-25T20:36:02.765537+00:00", "component": "A", "name": "JioCinema", "result": "PASS", "duration_ms": 1744, "detail": "all elements found \u2014 loaded in 1307ms"}
+{"ts": "2026-06-25T20:36:07.227317+00:00", "component": "A", "name": "Google", "result": "PASS", "duration_ms": 4448, "detail": "all elements found \u2014 loaded in 2856ms"}
+{"ts": "2026-06-25T20:36:15.707962+00:00", "component": "A", "name": "YouTube", "result": "BLOCKED", "duration_ms": 8460, "detail": "bot detection challenge (expected) \u2014 loaded in 8058ms"}
+{"ts": "2026-06-25T20:36:25.873527+00:00", "component": "A", "name": "Khan Academy", "result": "PASS", "duration_ms": 10165, "detail": "all elements found \u2014 loaded in 8082ms"}
+{"ts": "2026-06-25T20:36:32.562525+00:00", "component": "A", "name": "Cloudflare Test", "result": "BLOCKED", "duration_ms": 6656, "detail": "bot detection challenge (expected) \u2014 loaded in 6113ms"}
+{"summary": true, "total": 26, "pass": 23, "fail": 0, "blocked": 3, "degraded": 0, "missing": 0, "misplaced": 0, "by_component": {"A": {"total": 6, "pass": 3, "fail": 0, "blocked": 3}, "B": {"total": 5, "pass": 5, "fail": 0, "degraded": 0}, "C": {"total": 15, "pass": 15, "missing": 0, "misplaced": 0}}}

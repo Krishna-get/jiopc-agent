@@ -1,0 +1,136 @@
+agent:
+  log_dir: ~/.local/share/jiopc/agent/
+  llm_prompt_file: ./prompts/analyse_log.txt
+  cool_down_seconds: 2
+web_apps:
+- name: JioSaavn
+  url: https://www.jiosaavn.com
+  load_timeout_ms: 8000
+  bot_detection_expected: true
+  elements:
+  - selector: nav
+    description: top navigation bar
+- name: JioCinema
+  url: https://www.jiocinema.com
+  load_timeout_ms: 15000
+  bot_detection_expected: false
+  elements:
+  - selector: div
+    description: page content loaded
+- name: Google
+  url: https://www.google.com
+  load_timeout_ms: 5000
+  bot_detection_expected: false
+  elements:
+  - selector: textarea[name="q"]
+    description: search box
+- name: YouTube
+  url: https://www.youtube.com
+  load_timeout_ms: 8000
+  bot_detection_expected: true
+  elements:
+  - selector: input#search
+    description: search input
+- name: Khan Academy
+  url: https://www.khanacademy.org
+  load_timeout_ms: 15000
+  bot_detection_expected: false
+  elements:
+  - selector: nav
+    description: top navigation bar
+- name: Cloudflare Test
+  url: https://www.cloudflare.com
+  load_timeout_ms: 8000
+  bot_detection_expected: true
+  elements:
+  - selector: nav
+    description: top navigation bar
+native_apps:
+- name: Featherpad
+  desktop_file: /usr/share/applications/featherpad.desktop
+  process_name: featherpad
+  launch_timeout_s: 10
+- name: Feathernotes
+  desktop_file: /usr/share/applications/feathernotes.desktop
+  process_name: feathernotes
+  launch_timeout_s: 10
+- name: Audacious
+  desktop_file: /usr/share/applications/audacious.desktop
+  process_name: audacious
+  launch_timeout_s: 10
+- name: QTerminal
+  desktop_file: /usr/share/applications/qterminal.desktop
+  process_name: qterminal
+  launch_timeout_s: 10
+- name: Gucharmap
+  desktop_file: /usr/share/applications/gucharmap.desktop
+  process_name: gucharmap
+  launch_timeout_s: 10
+desktop_presence:
+- name: Featherpad
+  desktop_file: /usr/share/applications/featherpad.desktop
+  desktop_folder: Productivity
+  start_menu_category: Utility
+- name: Feathernotes
+  desktop_file: /usr/share/applications/feathernotes.desktop
+  desktop_folder: Productivity
+  start_menu_category: Utility
+- name: Audacious
+  desktop_file: /usr/share/applications/audacious.desktop
+  desktop_folder: Entertainment
+  start_menu_category: AudioVideo
+- name: MPV
+  desktop_file: /usr/share/applications/mpv.desktop
+  desktop_folder: Entertainment
+  start_menu_category: AudioVideo
+- name: Thunderbird
+  desktop_file: /usr/share/applications/thunderbird.desktop
+  desktop_folder: Productivity
+  start_menu_category: Network
+- name: QTerminal
+  desktop_file: /usr/share/applications/qterminal.desktop
+  desktop_folder: Productivity
+  start_menu_category: System
+- name: PCManFM
+  desktop_file: /usr/share/applications/pcmanfm-qt.desktop
+  desktop_folder: Productivity
+  start_menu_category: FileManager
+- name: GNOME Calculator
+  desktop_file: /usr/share/applications/org.gnome.Calculator.desktop
+  desktop_folder: Productivity
+  start_menu_category: Utility
+- name: GNOME Text Editor
+  desktop_file: /usr/share/applications/org.gnome.TextEditor.desktop
+  desktop_folder: Productivity
+  start_menu_category: Utility
+- name: LxQt Archiver
+  desktop_file: /usr/share/applications/lxqt-archiver.desktop
+  desktop_folder: Productivity
+  start_menu_category: Utility
+- name: LxImage Qt
+  desktop_file: /usr/share/applications/lximage-qt.desktop
+  desktop_folder: Entertainment
+  start_menu_category: Graphics
+- name: Pavucontrol Qt
+  desktop_file: /usr/share/applications/pavucontrol-qt.desktop
+  desktop_folder: Productivity
+  start_menu_category: AudioVideo
+- name: QPS
+  desktop_file: /usr/share/applications/qps.desktop
+  desktop_folder: Productivity
+  start_menu_category: System
+- name: Meteo Qt
+  desktop_file: /usr/share/applications/meteo-qt.desktop
+  desktop_folder: Productivity
+  start_menu_category: Network
+- name: Gucharmap
+  desktop_file: /usr/share/applications/gucharmap.desktop
+  desktop_folder: Productivity
+  start_menu_category: Utility
+email:
+  smtp_host: sandbox.smtp.mailtrap.io
+  smtp_port: 2525
+  smtp_user: 371243776748cc
+  smtp_pass: d97747ac67de7f
+  sender: jiopc-agent@jiopc.local
+  recipient: krishna@jiopc.local

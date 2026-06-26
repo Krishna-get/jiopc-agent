@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs — sample log is committed explicitly, rest excluded
+*.log
+
+# Trend history — machine specific
+trend_history.json
+
+# Virtual environments
+venv/
+.env
+
+# Package build artifacts
+packaging/jiopc-agent-deb/
+packaging/*.deb
+
+# Screenshots (add manually)
+screenshots/
+
+# OS
+.DS_Store
+Thumbs.db

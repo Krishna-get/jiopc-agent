@@ -1,0 +1,27 @@
+Analysing log: /home/krishna/jiopc-agent/test_run_2026-06-25T20-35-01.log
+Model: claude-haiku-4-5-20251001
+Base URL: https://api.anthropic.com/v1
+--------------------------------------------------
+# JioPC OS Image Test Run Analysis
+
+## Executive Summary
+26 tests executed with 23 passing (88%), 3 blocked by expected bot-detection challenges, and zero critical failures. Component C (Desktop & Start Menu) achieved perfect results across 15 apps. Component B (Native Apps) demonstrated stable health with all 5 tested applications launching successfully and maintaining healthy resource profiles. Component A (Web Apps) saw 3 expected BLOCKED results from bot challenges on JioSaavn, YouTube, and Cloudflare Test—a known testing limitation, not a system defect. This OS Image patch is safe to promote.
+
+## Anomalies and Failures by Component
+
+### Part A — Web App Testing
+No unexpected failures. The 3 BLOCKED results (JioSaavn, YouTube, Cloudflare Test) are documented as expected bot-detection challenges inherent to automated testing frameworks and do not indicate system issues. JioCinema, Google, and Khan Academy all loaded and validated successfully.
+
+### Part B — Native App Health
+All tests passed. Featherpad, Feathernotes, Audacious, QTerminal, and Gucharmap launched cleanly with healthy memory footprints (41.8–47.8 MB VmRSS) and acceptable CPU usage (0.0–61.8%, with Audacious's spike expected for audio playback initialization).
+
+### Part C — Desktop & Start Menu Presence
+All 15 desktop applications passed presence and categorization checks. No missing or misplaced .desktop files detected. All apps correctly categorized and located in appropriate Start Menu folders.
+
+## Patterns and Correlations
+No negative patterns identified. The three BLOCKED results form an expected pattern: services with strict bot detection (streaming, search, CDN) trigger automated bot challenges during headless testing. This is standard behavior and unrelated to OS Image stability. No component shows degradation, crashes, or resource anomalies. Test timing is consistent (6–10 seconds for web apps, ~6 seconds for native apps).
+
+## Recommendation
+**PROMOTE**
+
+Zero critical failures, all native apps healthy, all desktop integration intact, and bot blocks are expected and documented—this patch is production-ready.
