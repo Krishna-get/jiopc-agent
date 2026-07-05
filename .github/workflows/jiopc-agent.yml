@@ -1,3 +1,10 @@
+# NOTE: This pipeline demonstrates CI/CD integration capability.
+# Part C results will show MISSING on a generic GitHub runner because
+# JioPC-specific apps (pavucontrol-qt, meteo-qt, qps etc.) are only
+# present on the JioPC OS Image environment. Run against a JioPC VM
+# for meaningful results. The pipeline is designed to be triggered
+# manually by an engineer on a machine with the JioPC OS Image installed.
+
 name: JioPC OS Image Validation
 
 on:
