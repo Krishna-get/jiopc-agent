@@ -31,13 +31,13 @@ web_apps:
   elements:
   - selector: input#search
     description: search input
-- name: Khan Academy
-  url: https://www.khanacademy.org
-  load_timeout_ms: 15000
+- name: Wikipedia
+  url: https://www.wikipedia.org
+  load_timeout_ms: 8000
   bot_detection_expected: false
   elements:
-  - selector: nav
-    description: top navigation bar
+  - selector: input#searchInput
+    description: search box
 - name: Cloudflare Test
   url: https://www.cloudflare.com
   load_timeout_ms: 8000

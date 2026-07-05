@@ -2,8 +2,9 @@
 
 A scripted validation framework that tests a freshly patched JioPC OS Image for
 regressions across web apps, native app health, and desktop application presence.
-Results are written to a structured JSON Lines log, then analysed by an LLM layer
-that produces a plain-language PROMOTE / HOLD recommendation.
+Results are written to a structured JSON Lines log, analysed by an LLM layer that
+produces a plain-language PROMOTE / HOLD recommendation, and emailed to a
+configured recipient.
 
 ## What It Does
 
@@ -16,7 +17,7 @@ that produces a plain-language PROMOTE / HOLD recommendation.
 ## Quick Start
 
 ```bash
-# Run all three parts
+# Run all three parts (C + A in parallel, then B)
 python3 jiopc_agent.py --config jiopc-agent.yaml
 
 # Run a single part
@@ -24,8 +25,11 @@ python3 jiopc_agent.py --config jiopc-agent.yaml --part C   # fastest, under 1s
 python3 jiopc_agent.py --config jiopc-agent.yaml --part B
 python3 jiopc_agent.py --config jiopc-agent.yaml --part A
 
-# Run everything then analyse with LLM
+# Run all parts then analyse with LLM + send email
 python3 jiopc_agent.py --config jiopc-agent.yaml --analyse
+
+# Disable parallel execution (sequential fallback)
+python3 jiopc_agent.py --config jiopc-agent.yaml --no-parallel
 ```
 
 ## LLM Analysis
@@ -35,7 +39,11 @@ export LLM_BASE_URL=https://api.anthropic.com/v1
 export LLM_MODEL=claude-haiku-4-5-20251001
 export LLM_API_KEY=your_api_key_here
 
+# Analyse + send email
 python3 analyse.py --log ~/.local/share/jiopc/agent/test_run_<timestamp>.log
+
+# Analyse only, skip email
+python3 analyse.py --log ~/.local/share/jiopc/agent/test_run_<timestamp>.log --no-email
 ```
 
 Works with any OpenAI-compatible endpoint — swap the three environment variables
@@ -50,6 +58,27 @@ SUMMARY: 23/26 passed
 
 The 3 BLOCKED results are expected — JioSaavn, YouTube, and Cloudflare use
 bot detection that blocks headless browsers. BLOCKED is not a failure.
+
+## Trend Analysis
+
+Every run appends a summary to `~/.local/share/jiopc/agent/trend_history.json`.
+After each run the agent automatically compares results against the previous run
+and prints a regression/improvement report:
+
+```
+TREND ANALYSIS (vs run at 2026-06-25 20:07:00)
+  ⚠ REGRESSIONS (1) — these were passing before:
+    [C] Featherpad: PASS → MISPLACED
+  Pass rate trend (last 3 runs):
+    2026-06-25 20:07:00  23/26 passed (88%)  BLOCKED=3
+    2026-06-25 20:35:01  23/26 passed (88%)  BLOCKED=3  ◄ current
+```
+
+## Email Summary
+
+After LLM analysis, a formatted HTML summary email is sent to the configured
+recipient. Configure SMTP settings in `jiopc-agent.yaml` under the `email` key.
+Tested with Mailtrap (sandbox) and compatible with any SMTP provider.
 
 ## Exit Codes
 
@@ -67,6 +96,7 @@ BLOCKED does not affect the exit code.
 ```
 
 JSON Lines format — one JSON record per test, summary block at end.
+Trend history: `~/.local/share/jiopc/agent/trend_history.json`
 
 ## Result Types
 
@@ -103,18 +133,23 @@ JSON Lines format — one JSON record per test, summary block at end.
 
 ```
 jiopc-agent/
-├── jiopc_agent.py              # Entry point
-├── analyse.py                  # LLM analysis script
-├── jiopc-agent.yaml            # All test case definitions (YAML)
+├── jiopc_agent.py              # Entry point (--part, --analyse, --no-parallel)
+├── analyse.py                  # LLM analysis + email (--no-email to skip)
+├── jiopc-agent.yaml            # All test case definitions + email config
 ├── prompts/
 │   └── analyse_log.txt         # LLM prompt file
 ├── src/
-│   ├── runner.py               # Orchestration — runs C → B → A
-│   └── logger.py               # JSON Lines logging + terminal output
+│   ├── runner.py               # Orchestration — C+A parallel, then B
+│   ├── logger.py               # JSON Lines logging + terminal output
+│   ├── trend.py                # Trend analysis + regression detection
+│   └── emailer.py              # SMTP email summary
 ├── parts/
 │   ├── part_a.py               # Web app testing (Selenium + Firefox)
 │   ├── part_b.py               # Native app health (subprocess + psutil)
 │   └── part_c.py               # Desktop presence (PyXDG + file checks)
+├── .github/
+│   └── workflows/
+│       └── jiopc-agent.yml     # GitHub Actions CI/CD pipeline
 ├── benchmarks/
 │   └── benchmark_report.md     # CPU, RAM, timing results
 ├── screenshots/                # VM screenshots for submission
@@ -127,13 +162,20 @@ jiopc-agent/
 └── design.md
 ```
 
+## Bonus Goals Implemented
+
+| Goal | Status |
+|------|--------|
+| Trend analysis — regression detection across runs | ✓ |
+| Summary email via SMTP after analysis | ✓ |
+| CI/CD pipeline (GitHub Actions) | ✓ |
+| Parallel execution (Part A + C concurrent) | ✓ |
+
 ## Known Limitations
 
-- JioSaavn and YouTube always return BLOCKED in headless mode due to bot
-  detection — this is correct behaviour, marked `bot_detection_expected: true`.
+- JioSaavn and YouTube always return BLOCKED in headless mode — expected, marked
+  `bot_detection_expected: true` in YAML.
 - Khan Academy occasionally exceeds the 10s load threshold on slow networks —
-  it still passes since the threshold triggers a SLOW flag, not a FAIL.
-- Firefox snap binary path is auto-detected but depends on snap revisions
-  present on the machine.
-- No parallel execution — parts run sequentially to stay within CPU budget.
-- Desktop folder symlinks must be created once before Part C runs — see INSTALL.md.
+  still passes since threshold triggers a SLOW flag, not a FAIL.
+- Firefox snap binary path is auto-detected but depends on snap revisions present.
+- Desktop folder symlinks must be created once before Part C — see INSTALL.md.

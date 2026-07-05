@@ -16,6 +16,7 @@ class Runner:
         self.parallel = parallel
 
     def _run_part_a(self):
+        print(f"  [A] Thread started at {time.monotonic():.2f}s")  # add this
         try:
             from parts.part_a import run_part_a
             run_part_a(self.config['web_apps'], self.logger)
@@ -23,6 +24,7 @@ class Runner:
             print(f"  [A] FATAL: Part A crashed: {e}")
 
     def _run_part_c(self):
+        print(f"  [C] Thread started at {time.monotonic():.2f}s")  # add this
         try:
             from parts.part_c import run_part_c
             run_part_c(self.config['desktop_presence'], self.logger)

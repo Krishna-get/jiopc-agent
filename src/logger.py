@@ -1,5 +1,6 @@
 import json
 import os
+import threading                          # ADD
 from datetime import datetime, timezone
 
 
@@ -7,10 +8,9 @@ class Logger:
     def __init__(self, log_dir: str):
         self.log_dir = os.path.expanduser(log_dir)
         os.makedirs(self.log_dir, exist_ok=True)
-
         timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.log_path = os.path.join(self.log_dir, f"test_run_{timestamp}.log")
-
+        self._lock = threading.Lock()     # ADD
         self.counts = {
             "total": 0,
             "pass": 0,
@@ -25,9 +25,7 @@ class Logger:
             "B": {"total": 0, "pass": 0, "fail": 0, "degraded": 0},
             "C": {"total": 0, "pass": 0, "missing": 0, "misplaced": 0},
         }
-        # Store all results for trend analysis
         self.all_results = []
-
         print(f"[Logger] Log file: {self.log_path}")
 
     def log(self, component: str, name: str, result: str, duration_ms: int, detail: str):
@@ -39,22 +37,18 @@ class Logger:
             "duration_ms": duration_ms,
             "detail": detail,
         }
-        with open(self.log_path, "a") as f:
-            f.write(json.dumps(record) + "\n")
-
-        # Store for trend
-        self.all_results.append(record)
-
-        # Update counts
-        self.counts["total"] += 1
-        result_key = result.lower()
-        if result_key in self.counts:
-            self.counts[result_key] += 1
-
-        comp = self.by_component.get(component, {})
-        comp["total"] = comp.get("total", 0) + 1
-        if result_key in comp:
-            comp[result_key] += 1
+        with self._lock:                  # ADD
+            with open(self.log_path, "a") as f:
+                f.write(json.dumps(record) + "\n")
+            self.all_results.append(record)
+            self.counts["total"] += 1
+            result_key = result.lower()
+            if result_key in self.counts:
+                self.counts[result_key] += 1
+            comp = self.by_component.get(component, {})
+            comp["total"] = comp.get("total", 0) + 1
+            if result_key in comp:
+                comp[result_key] += 1
 
         symbol = {"PASS": "✓", "FAIL": "✗", "BLOCKED": "⊘",
                   "DEGRADED": "⚠", "MISSING": "✗", "MISPLACED": "⚠"}.get(result, "?")
@@ -74,7 +68,6 @@ class Logger:
         }
         with open(self.log_path, "a") as f:
             f.write(json.dumps(summary) + "\n")
-
         print(f"\n{'='*50}")
         print(f"SUMMARY: {self.counts['pass']}/{self.counts['total']} passed")
         print(f"  FAIL={self.counts['fail']} BLOCKED={self.counts['blocked']} "

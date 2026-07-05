@@ -2,10 +2,9 @@
 
 ## Architecture Overview
 
-The agent is structured as five layers: a YAML-driven configuration, a shared
+The agent is structured as six layers: a YAML-driven configuration, a shared
 runner core, three independent testing components (A, B, C), a structured logger,
-and a post-run LLM analysis layer. All layers are loosely coupled — each part can
-run independently, and the LLM layer requires no changes to add new analysis logic.
+a trend analysis module, and a post-run LLM analysis layer with email delivery.
 
 ```
 jiopc-agent.yaml
@@ -13,75 +12,95 @@ jiopc-agent.yaml
       ▼
   Runner Core (src/runner.py)
       │
-      ├── Part C: Desktop Presence (parts/part_c.py)
-      │       PyXDG — reads .desktop files, checks categories and folders
+      ├── [Thread 1] Part C: Desktop Presence (parts/part_c.py)  ─┐
+      │       PyXDG — reads .desktop files                         ├─ parallel
+      ├── [Thread 2] Part A: Web App Testing (parts/part_a.py)   ─┘
+      │       Selenium + Firefox headless
       │
-      ├── Part B: Native App Health (parts/part_b.py)
-      │       subprocess + psutil — launches, monitors, cleans up
-      │
-      └── Part A: Web App Testing (parts/part_a.py)
-              Selenium + Firefox headless — loads URLs, checks elements
+      └── Part B: Native App Health (parts/part_b.py)  ← sequential
+              subprocess + psutil
                       │
                       ▼
             Logger (src/logger.py)
             JSON Lines → ~/.local/share/jiopc/agent/test_run_<ts>.log
                       │
                       ▼
+            Trend Analysis (src/trend.py)
+            trend_history.json → regression/improvement report
+                      │
+                      ▼
             LLM Analysis (analyse.py)
             prompt + log → PROMOTE / HOLD
+                      │
+                      ▼
+            Email Summary (src/emailer.py)
+            HTML report → SMTP → recipient
 ```
 
 ## Component Design
 
 ### Runner Core (src/runner.py)
 
-Reads YAML at startup. Executes parts in order C → B → A (cheapest to most
-expensive). Each part is wrapped in a try/except so a crash in one part never
-prevents the others from running and the log summary is always written. Returns
-exit code 0 on all-pass, non-zero on any FAIL, MISSING, MISPLACED, or DEGRADED.
-BLOCKED is not treated as a failure.
+Reads YAML at startup. Executes parts in order: Part C and Part A run in parallel
+threads, then Part B runs sequentially. Each part is wrapped in try/except so a
+crash in one never prevents others from running and the summary is always written.
+
+Parallel execution uses Python `threading.Thread` — safe because Part C is pure
+file I/O and Part A is pure network I/O with no shared mutable state. Part B must
+remain sequential because it launches GUI apps that compete for display and audio
+resources.
+
+A `--no-parallel` flag allows engineers to fall back to sequential execution if
+needed (e.g. debugging, resource-constrained environments).
+
+Returns exit code 0 on all-pass, non-zero on any FAIL, MISSING, MISPLACED, or
+DEGRADED. BLOCKED is not a failure.
 
 ### Logger (src/logger.py)
 
 Writes one JSON object per line to the log file. Every record contains:
 `ts`, `component`, `name`, `result`, `duration_ms`, `detail`.
 Final line is a summary block with total counts and per-component breakdown.
-Prints colour-coded terminal output during the run.
+All results are also stored in `self.all_results` for trend analysis consumption.
 
 `all_passed()` returns False if any of FAIL, MISSING, MISPLACED, or DEGRADED
-is non-zero — all four are treated as gate failures. BLOCKED is not a failure.
+is non-zero — all four are treated as gate failures. BLOCKED is excluded.
+
+### Trend Analysis (src/trend.py)
+
+After every run, saves a summary entry to
+`~/.local/share/jiopc/agent/trend_history.json` (max 50 entries, oldest pruned).
+Each entry stores: timestamp, log path, counts, and per-test result map.
+
+On each run, compares current results against the previous entry and classifies:
+- **Regression**: was PASS/BLOCKED, now FAIL/MISSING/MISPLACED/DEGRADED
+- **Improvement**: was FAIL/MISSING/MISPLACED/DEGRADED, now PASS/BLOCKED
+
+Prints a pass-rate trend table for the last 5 runs with a "◄ current" marker.
+The LLM prompt is instructed to treat regressions as HOLD signals regardless
+of total pass count.
 
 ### Part A — Web App Testing
 
 Technology: Selenium 4 + Firefox (snap) + geckodriver.
 
 **Why Selenium and not Playwright:** Playwright does not support Ubuntu 26.04
-(confirmed during development — installation fails with "Playwright does not
-support chromium/firefox on ubuntu26.04-x64"). Selenium with Firefox snap is
-the correct choice for this platform.
+(confirmed during development). Selenium with Firefox snap is the correct choice.
 
 One Firefox instance is shared across all URL tests to avoid the ~10s per-instance
-startup overhead of the snap binary. Each URL gets its own page load with timeout.
+startup overhead. Each URL gets its own page load with timeout.
 
-**Firefox binary discovery:** The agent uses a fallback chain to find the real
-Firefox binary — snap revision paths sorted descending, then standard locations.
-`/usr/bin/firefox` is deliberately skipped — it is a shell wrapper script that
-Selenium rejects with "binary is not a Firefox executable". The real binary lives
-at `/snap/firefox/<revision>/usr/lib/firefox/firefox`. This is auto-detected at
-runtime so the agent works across snap revisions without code changes.
+**Firefox binary discovery:** Uses a fallback chain — snap revision paths sorted
+descending, then standard locations. `/usr/bin/firefox` is deliberately skipped
+— it is a shell wrapper script that Selenium rejects with "binary is not a Firefox
+executable". Auto-detected at runtime so the agent works across snap revisions.
 
-**geckodriver discovery:** Uses `shutil.which('geckodriver')` first, then checks
-`/snap/bin/geckodriver` and other standard paths. geckodriver is bundled with the
-Firefox snap — no separate installation is needed.
+**Bot detection:** Checks page title and source for known signals. Returns BLOCKED
+not FAIL. `bot_detection_expected: true` in YAML suppresses the "unexpected" flag.
 
-**Bot detection:** Checks page title and source for known signals (Cloudflare,
-CAPTCHA, "just a moment"). Returns BLOCKED — not FAIL — for challenged pages.
-`bot_detection_expected: true` in YAML suppresses the "unexpected" flag.
-
-**Blank/error page detection:** Checks both body text length and page title.
-JS-heavy SPAs like JioCinema render an empty body in headless mode but have a
-valid title — both must be absent before a page is flagged as blank. This avoids
-false FAILs on legitimate single-page applications.
+**Blank/error page detection:** Checks both body text length and title. JS-heavy
+SPAs like JioCinema render empty body in headless mode but have a valid title —
+both must be absent before flagging as blank, avoiding false FAILs.
 
 Result types: PASS, FAIL (timeout, missing element, error page), BLOCKED.
 
@@ -89,96 +108,90 @@ Result types: PASS, FAIL (timeout, missing element, error page), BLOCKED.
 
 Technology: subprocess + psutil.
 
-**Why Xvfb was dropped:** An earlier implementation used Xvfb (virtual
-framebuffer) to isolate GUI app rendering. This was removed for two reasons:
-(1) Xvfb creates `/tmp/.X<n>-lock` by design, which violates the constraint
-"nothing written to /tmp or system paths"; (2) stale lock files from crashed
-Xvfb instances caused repeated "Server is already active" errors that terminated
-the agent mid-run. Since the agent is always run by an engineer inside an active
-LxQt session, a real DISPLAY is always available — no virtual display is needed.
+**Why Xvfb was dropped:** Xvfb creates `/tmp/.X<n>-lock` which violates the
+"nothing written to /tmp" constraint. Stale lock files from crashed instances
+also caused repeated agent termination during development. The agent uses the
+engineer's existing LxQt session DISPLAY instead.
 
-**Full Exec= command line:** Each app is launched using the full command parsed
-from the `Exec=` field in the .desktop file, not just the binary name. This is
-important for apps like mpv (`--player-operation-mode=pseudo-gui`) or Flatpak
-entries (`flatpak run <app-id>`) that require arguments to start correctly.
-`%U`, `%f`, `%F` and other field codes are stripped before launching.
+**Full Exec= command line:** Launches using the full command from the .desktop
+`Exec=` field (not just the binary) — required for apps with mandatory arguments.
+`%U`, `%f`, `%F` field codes are stripped before launching.
 
-**Process matching:** Uses the launched PID first, then falls back to name/cmdline
-matching filtered to processes created at or after the launch timestamp. This
-prevents accidentally matching a pre-existing instance of the same app that was
-already running before the test.
+**Process matching:** Uses launched PID first, then name/cmdline filtered to
+processes created at or after launch time — prevents matching pre-existing
+instances of the same app.
 
-**Safe process cleanup:** Process tree is always terminated in a `finally` block
-regardless of test outcome. The agent checks `proc.pid != our_pid` before every
-termination call to prevent accidentally killing itself. A configurable cool-down
+**Safe cleanup:** Process tree always terminated in `finally` block. Self-PID
+check prevents the agent from accidentally killing itself. Configurable cool-down
 (default 2s) between apps prevents resource contention.
 
 Result types: PASS, FAIL (binary missing, process timeout), DEGRADED (crashed).
 
 ### Part C — Desktop & Start Menu Presence
 
-Technology: PyXDG (`xdg.DesktopEntry`). Read-only — no app launching, no
-network, completes in under 1 second for all 15 apps.
+Technology: PyXDG (`xdg.DesktopEntry`). Read-only — no app launching, no network.
+Completes in under 1 second for all 15 apps. Safe to run in parallel with Part A.
 
-For each app: checks .desktop file exists at the path defined in YAML, parses
-the `Categories=` field, compares against the expected category from YAML. Then
-checks the app's .desktop file (or symlink) is present inside
-`~/Desktop/<folder>/`.
+Checks .desktop file exists, parses `Categories=`, compares against YAML expected
+category, then checks file/symlink presence inside `~/Desktop/<folder>/`.
 
-**Desktop folder matching:** Uses the exact filename from the YAML `desktop_file`
-path as the primary match key. This correctly handles apps like GNOME Calculator
-whose filename (`org.gnome.Calculator.desktop`) does not match their display name
-("GNOME Calculator"). A fuzzy name match is used as a secondary fallback for
-cases where the filename convention differs.
+**Desktop folder matching:** Uses exact filename from YAML `desktop_file` as
+primary match key — correctly handles apps like GNOME Calculator whose filename
+(`org.gnome.Calculator.desktop`) doesn't match display name. Fuzzy name match
+as secondary fallback.
 
-**Desktop folder setup:** The `~/Desktop/<folder>/` directories and symlinks must
-be created once before the agent runs. The INSTALL guide includes a one-time
-setup script. On a real JioPC Gold Image, these folders would be pre-created as
-part of the OS image build.
-
-Result types: PASS, MISSING (.desktop not found), MISPLACED (wrong category
-or wrong desktop folder).
+Result types: PASS, MISSING (.desktop not found), MISPLACED (wrong category/folder).
 
 ### LLM Analysis Layer (analyse.py)
 
 Model-agnostic — API base URL, model, and key from environment variables.
-Supports Anthropic native API (`/v1/messages`) and any OpenAI-compatible
-endpoint (`/v1/chat/completions`) — detected from the base URL string.
+Supports Anthropic native API and any OpenAI-compatible endpoint.
+`--no-email` flag skips email delivery for quick analysis without notification.
 
-Reads the log file, injects it into the prompt, prints structured markdown
-analysis to the terminal. The prompt instructs the LLM to produce: executive
-summary, anomaly list by component, pattern detection, and a PROMOTE / HOLD
-recommendation with rationale.
+### Email Summary (src/emailer.py)
+
+Sends a formatted HTML email after LLM analysis. Includes PROMOTE/HOLD
+recommendation with colour-coded header (green/red), pass/fail counts, full
+analysis text, and log file path. Plain-text fallback included for email clients
+that don't render HTML. SMTP credentials configured in YAML under `email:` key.
+Tested with Mailtrap sandbox — compatible with any SMTP provider.
 
 ## YAML Schema
 
 ```yaml
 agent:
-  log_dir: string           # where logs are written
-                            # default: ~/.local/share/jiopc/agent/
-  llm_prompt_file: string   # path to LLM prompt file
-  cool_down_seconds: int    # pause between Part B app launches (default: 2)
+  log_dir: string           # log output path
+  llm_prompt_file: string   # path to LLM prompt
+  cool_down_seconds: int    # pause between Part B launches (default: 2)
 
-web_apps:                   # Part A — one entry per URL to test
+email:                      # optional — omit to skip email
+  smtp_host: string
+  smtp_port: int
+  smtp_user: string
+  smtp_pass: string
+  sender: string
+  recipient: string
+
+web_apps:                   # Part A
   - name: string
     url: string
-    load_timeout_ms: int    # original threshold for SLOW flag
-    bot_detection_expected: bool  # true = BLOCKED is expected, not flagged
+    load_timeout_ms: int
+    bot_detection_expected: bool
     elements:
-      - selector: string    # CSS selector to check for presence
-        description: string # human-readable name for log output
+      - selector: string    # CSS selector
+        description: string
 
-native_apps:                # Part B — one entry per app to health-check
+native_apps:                # Part B
   - name: string
-    desktop_file: string    # absolute path to .desktop file
-    process_name: string    # process name to match after launch
-    launch_timeout_s: int   # seconds to wait for process to appear
+    desktop_file: string
+    process_name: string
+    launch_timeout_s: int
 
-desktop_presence:           # Part C — one entry per app to check
+desktop_presence:           # Part C
   - name: string
-    desktop_file: string    # absolute path to .desktop file
-    desktop_folder: string  # expected ~/Desktop/<folder> name
-    start_menu_category: string  # expected value in Categories= field
+    desktop_file: string
+    desktop_folder: string
+    start_menu_category: string
 ```
 
 ## Technology Choices
@@ -186,38 +199,26 @@ desktop_presence:           # Part C — one entry per app to check
 | Area | Choice | Rationale |
 |------|--------|-----------|
 | Language | Python 3.11+ | Available on Ubuntu 24.04, rich automation ecosystem |
-| Web testing | Selenium 4 + Firefox snap | Playwright does not support Ubuntu 26.04; Firefox snap is pre-installed |
-| Browser binary | `/snap/firefox/<rev>/usr/lib/firefox/firefox` | `/usr/bin/firefox` is a wrapper script rejected by Selenium |
-| Process management | psutil | Accurate VmRSS, cross-platform process tree termination |
-| .desktop parsing | PyXDG | Correct Freedesktop spec implementation, handles Categories= reliably |
-| YAML | PyYAML | Standard library, supports comments |
-| LLM client | httpx | Lightweight, supports both Anthropic and OpenAI-compatible APIs |
-| Log format | JSON Lines | Machine-readable, streamable, directly ingestible by LLM prompt |
-| Virtual display | Dropped — uses session DISPLAY | Avoids /tmp lock file constraint violation and Xvfb startup flakiness |
+| Web testing | Selenium 4 + Firefox snap | Playwright does not support Ubuntu 26.04 |
+| Browser binary | snap revision path | `/usr/bin/firefox` is a wrapper rejected by Selenium |
+| Process management | psutil | Accurate VmRSS, clean process tree termination |
+| .desktop parsing | PyXDG | Correct Freedesktop spec implementation |
+| YAML | PyYAML | Standard, supports comments |
+| LLM client | httpx | Supports both Anthropic and OpenAI-compatible APIs |
+| Log format | JSON Lines | Machine-readable, streamable, LLM-consumable |
+| Parallelism | threading.Thread | Part A (network) + Part C (file I/O) safely concurrent |
+| Virtual display | Dropped — uses session DISPLAY | Avoids /tmp constraint + stale lock flakiness |
+| Email | smtplib + MIME | Standard library, no extra dependencies |
+| Trend storage | JSON file in home dir | Survives VM reassignment via NFS home |
 
-## Data Flow
+## Bonus Goals
 
-```
-YAML config
-    │
-    ├─ Part C ─► os.path.exists() + PyXDG.getCategories() + os.listdir(Desktop/)
-    │                 │
-    │                 ▼ PASS / MISSING / MISPLACED
-    │
-    ├─ Part B ─► shutil.which() + subprocess.Popen() + psutil.Process()
-    │                 │
-    │                 ▼ PASS / FAIL / DEGRADED
-    │
-    └─ Part A ─► selenium.webdriver.Firefox() + driver.get() + find_elements()
-                      │
-                      ▼ PASS / FAIL / BLOCKED
-                      │
-                 Logger.log() ──► JSON Lines log file
-                      │
-                 Logger.write_summary() ──► summary block
-                      │
-                 analyse.py ──► LLM API ──► PROMOTE / HOLD
-```
+| Goal | Implementation |
+|------|---------------|
+| Trend analysis | src/trend.py — saves per-run summary, detects regressions |
+| Summary email | src/emailer.py — HTML report via SMTP after LLM analysis |
+| CI/CD pipeline | .github/workflows/jiopc-agent.yml — GitHub Actions |
+| Parallel execution | threading.Thread in runner.py — Part A + C concurrent |
 
 ## Performance
 
@@ -229,22 +230,11 @@ YAML config
 | Sustained CPU | 1–3% | 20% |
 | Part C alone | < 1s | 30s |
 
-Part B overhead per app: ~10ms polling overhead per 500ms interval.
-Cool-down of 2s between apps prevents false DEGRADED results from contention.
-
 ## Known Limitations
 
-- **Playwright not usable:** Playwright does not support Ubuntu 26.04. Selenium
-  with Firefox snap is the correct replacement — all Part A functionality is
-  fully implemented.
-- **Firefox snap binary path:** Detected dynamically but depends on snap
-  revisions present on the machine. The agent picks the highest-numbered
-  revision automatically.
-- **Bot-detection sites:** JioSaavn and YouTube always return BLOCKED in headless
-  mode — marked `bot_detection_expected: true` in YAML. This is real-world
-  correct behaviour, not a system defect.
-- **JS-heavy SPAs:** JioCinema renders an empty body in headless mode — the blank
-  page check uses title as a secondary signal to avoid false FAILs.
-- **No parallel execution:** Parts run sequentially to stay within the CPU budget.
-- **Desktop folder setup:** `~/Desktop/<folder>/` symlinks must be created once
-  before running Part C. On a real Gold Image this would be pre-configured.
+- Playwright not usable on Ubuntu 26.04 — Selenium is the correct replacement.
+- Firefox snap binary path auto-detected but depends on snap revisions present.
+- Bot-detection sites (JioSaavn, YouTube) always BLOCKED in headless mode.
+- JS-heavy SPAs (JioCinema) render empty body — title used as secondary signal.
+- No parallel execution for Part B — GUI app launches must be isolated.
+- Desktop folder symlinks must be created once before Part C (see INSTALL.md).
