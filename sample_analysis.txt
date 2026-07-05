@@ -1,27 +1,26 @@
-Analysing log: /home/krishna/jiopc-agent/test_run_2026-06-25T20-35-01.log
-Model: claude-haiku-4-5-20251001
-Base URL: https://api.anthropic.com/v1
+Analysing log: /home/krishna/.local/share/jiopc/agent/test_run_2026-07-03T05-15-10.log
+Model: llama-3.1-8b-instant
+Base URL: https://api.groq.com/openai/v1
 --------------------------------------------------
-# JioPC OS Image Test Run Analysis
-
 ## Executive Summary
-26 tests executed with 23 passing (88%), 3 blocked by expected bot-detection challenges, and zero critical failures. Component C (Desktop & Start Menu) achieved perfect results across 15 apps. Component B (Native Apps) demonstrated stable health with all 5 tested applications launching successfully and maintaining healthy resource profiles. Component A (Web Apps) saw 3 expected BLOCKED results from bot challenges on JioSaavn, YouTube, and Cloudflare Test—a known testing limitation, not a system defect. This OS Image patch is safe to promote.
+We ran 5 tests in this OS Image patch run. All tests passed, with no failures or unexpected blocked status. The overall health is good, and this OS Image patch is safe to promote.
 
 ## Anomalies and Failures by Component
 
 ### Part A — Web App Testing
-No unexpected failures. The 3 BLOCKED results (JioSaavn, YouTube, Cloudflare Test) are documented as expected bot-detection challenges inherent to automated testing frameworks and do not indicate system issues. JioCinema, Google, and Khan Academy all loaded and validated successfully.
+All tests passed. There are no FAIL or unexpected BLOCKED results to report.
 
 ### Part B — Native App Health
-All tests passed. Featherpad, Feathernotes, Audacious, QTerminal, and Gucharmap launched cleanly with healthy memory footprints (41.8–47.8 MB VmRSS) and acceptable CPU usage (0.0–61.8%, with Audacious's spike expected for audio playback initialization).
+All tests passed except Audacious at T+5s had CPU usage at 1.0%, but this seems to be within expected limits for an interactive media player. No FAIL or DEGRADED results.
 
 ### Part C — Desktop & Start Menu Presence
-All 15 desktop applications passed presence and categorization checks. No missing or misplaced .desktop files detected. All apps correctly categorized and located in appropriate Start Menu folders.
+All tests passed. There are no MISSING or MISPLACED results to report.
 
 ## Patterns and Correlations
-No negative patterns identified. The three BLOCKED results form an expected pattern: services with strict bot detection (streaming, search, CDN) trigger automated bot challenges during headless testing. This is standard behavior and unrelated to OS Image stability. No component shows degradation, crashes, or resource anomalies. Test timing is consistent (6–10 seconds for web apps, ~6 seconds for native apps).
+No patterns or correlations across failures are detected.
 
 ## Recommendation
-**PROMOTE**
+PROMOTE
+This OS Image patch is ready for promotion due to the excellent pass rate and no detected regressions or issues.
 
-Zero critical failures, all native apps healthy, all desktop integration intact, and bot blocks are expected and documented—this patch is production-ready.
+Note: The high CPU usage of 1.0% in Audacious might be a minor cause for concern, but it seems to be within expected limits based on the provided information. Without further context or thresholds, this does not appear to be a critical issue.
