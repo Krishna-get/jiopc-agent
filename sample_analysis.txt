@@ -1,26 +1,26 @@
-Analysing log: /home/krishna/.local/share/jiopc/agent/test_run_2026-07-03T05-15-10.log
+Analysing log: /home/krishna/.local/share/jiopc/agent/test_run_2026-06-25T20-35-01.log
 Model: llama-3.1-8b-instant
 Base URL: https://api.groq.com/openai/v1
 --------------------------------------------------
 ## Executive Summary
-We ran 5 tests in this OS Image patch run. All tests passed, with no failures or unexpected blocked status. The overall health is good, and this OS Image patch is safe to promote.
+23 out of 26 tests passed, with 3 tests being intentionally blocked due to bot/CAPTCHA detection challenges. The overall health of the JioPC OS Image is good, and it's safe to promote this OS Image patch.
 
 ## Anomalies and Failures by Component
 
 ### Part A — Web App Testing
-All tests passed. There are no FAIL or unexpected BLOCKED results to report.
+There were no unexpected FAILs. However, three tests were intentionally BLOCKED due to bot detection challenges:
+- JioSaavn was blocked due to bot detection
+- YouTube was blocked due to bot detection
+- Cloudflare Test was blocked due to bot detection (all of these are expected results, not system failures)
 
 ### Part B — Native App Health
-All tests passed except Audacious at T+5s had CPU usage at 1.0%, but this seems to be within expected limits for an interactive media player. No FAIL or DEGRADED results.
+There were no FAILs or DEGRADED results. All native apps passed their health checks, with no unusual high memory or CPU usage noted. All tests for Audacious and QTerminal passed successfully.
 
 ### Part C — Desktop & Start Menu Presence
-All tests passed. There are no MISSING or MISPLACED results to report.
+There were no MISSING or MISPLACED tests. All desktop and start menu presence tests passed, and all app files were found in the correct locations.
 
 ## Patterns and Correlations
-No patterns or correlations across failures are detected.
+There are no patterns across failures, and no correlations worth flagging. However, all test runs were successful, with the expected BLOCKED results for web applications.
 
 ## Recommendation
-PROMOTE
-This OS Image patch is ready for promotion due to the excellent pass rate and no detected regressions or issues.
-
-Note: The high CPU usage of 1.0% in Audacious might be a minor cause for concern, but it seems to be within expected limits based on the provided information. Without further context or thresholds, this does not appear to be a critical issue.
+PROMOTE. There were no issues or patterns found during this test run that would cause concern, and the overall health of the JioPC OS Image is good.
