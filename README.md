@@ -35,9 +35,9 @@ python3 jiopc_agent.py --config jiopc-agent.yaml --no-parallel
 ## LLM Analysis
 
 ```bash
-export LLM_BASE_URL=https://api.anthropic.com/v1
-export LLM_MODEL=claude-haiku-4-5-20251001
-export LLM_API_KEY=your_api_key_here
+export LLM_BASE_URL=https://api.groq.com/openai/v1
+export LLM_MODEL=llama3-8b-8192
+export LLM_API_KEY=your_groq_key_here
 
 # Analyse + send email
 python3 analyse.py --log ~/.local/share/jiopc/agent/test_run_<timestamp>.log
@@ -58,6 +58,10 @@ SUMMARY: 23/26 passed
 
 The 3 BLOCKED results are expected — JioSaavn, YouTube, and Cloudflare use
 bot detection that blocks headless browsers. BLOCKED is not a failure.
+
+Cloudflare occasionally times out instead of returning a challenge page, in which
+case it is logged as FAIL. This is non-deterministic and depends on Cloudflare's
+infrastructure — not a bug in the agent. See Known Limitations for details.
 
 ## Trend Analysis
 
@@ -113,11 +117,15 @@ Trend history: `~/.local/share/jiopc/agent/trend_history.json`
 
 | Metric | Result | Limit |
 |--------|--------|-------|
-| Full run time p50 | 102s | < 300s |
-| Full run time p95 | 109s | < 300s |
+| Full run p50 (parallel) | ~84s | < 300s |
+| Full run p95 (parallel) | ~109s | < 300s |
+| Full run sequential | 88–115s | < 300s |
 | Peak RAM (agent only) | ~53 MB | < 150 MB |
 | Sustained CPU | ~1–3% | < 20% |
 | Part C alone | < 1s | < 30s |
+
+p50 = median run time. p95 = worst-case run time across all measured runs.
+See `benchmarks/benchmark_report.md` for full methodology.
 
 ## Dependencies
 
@@ -140,7 +148,7 @@ jiopc-agent/
 │   └── analyse_log.txt         # LLM prompt file
 ├── src/
 │   ├── runner.py               # Orchestration — C+A parallel, then B
-│   ├── logger.py               # JSON Lines logging + terminal output
+│   ├── logger.py               # Thread-safe JSON Lines logging
 │   ├── trend.py                # Trend analysis + regression detection
 │   └── emailer.py              # SMTP email summary
 ├── parts/
@@ -151,7 +159,7 @@ jiopc-agent/
 │   └── workflows/
 │       └── jiopc-agent.yml     # GitHub Actions CI/CD pipeline
 ├── benchmarks/
-│   └── benchmark_report.md     # CPU, RAM, timing results
+│   └── benchmark_report.md     # CPU, RAM, timing, parallel vs sequential
 ├── screenshots/                # VM screenshots for submission
 ├── packaging/
 │   └── jiopc-agent.deb         # Installable .deb package
@@ -169,13 +177,18 @@ jiopc-agent/
 | Trend analysis — regression detection across runs | ✓ |
 | Summary email via SMTP after analysis | ✓ |
 | CI/CD pipeline (GitHub Actions) | ✓ |
-| Parallel execution (Part A + C concurrent) | ✓ |
+| Parallel execution (Part A + C concurrent, thread-safe) | ✓ |
 
 ## Known Limitations
 
-- JioSaavn and YouTube always return BLOCKED in headless mode — expected, marked
-  `bot_detection_expected: true` in YAML.
-- Khan Academy occasionally exceeds the 10s load threshold on slow networks —
-  still passes since threshold triggers a SLOW flag, not a FAIL.
-- Firefox snap binary path is auto-detected but depends on snap revisions present.
+- JioSaavn and YouTube always return BLOCKED in headless mode — expected,
+  marked `bot_detection_expected: true` in YAML.
+- Cloudflare and JioSaavn use bot-detection infrastructure that
+  non-deterministically either serves a challenge page (BLOCKED) or stalls
+  the connection until timeout (FAIL). Both are correct agent responses —
+  the agent cannot predict which will occur. A future improvement would be
+  treating timeouts on `bot_detection_expected` URLs as BLOCKED to avoid
+  false regression alerts in trend analysis.
+- Firefox snap binary path is auto-detected but depends on snap revisions
+  present on the machine.
 - Desktop folder symlinks must be created once before Part C — see INSTALL.md.

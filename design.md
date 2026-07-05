@@ -66,6 +66,11 @@ All results are also stored in `self.all_results` for trend analysis consumption
 `all_passed()` returns False if any of FAIL, MISSING, MISPLACED, or DEGRADED
 is non-zero — all four are treated as gate failures. BLOCKED is excluded.
 
+Thread-safe — a `threading.Lock` serialises all file writes and counter updates
+so Part A and Part C can call `log()` concurrently without corrupting the log or
+producing incorrect counts. The terminal print sits outside the lock to avoid
+holding it longer than necessary.
+
 ### Trend Analysis (src/trend.py)
 
 After every run, saves a summary entry to
@@ -224,17 +229,35 @@ desktop_presence:           # Part C
 
 | Metric | Measured | Limit |
 |--------|----------|-------|
-| Full run p50 | 102s | 300s |
-| Full run p95 | 109s | 300s |
+| Full run p50 (parallel) | ~84s | 300s |
+| Full run p95 (parallel) | ~102s | 300s |
+| Full run sequential | 88–115s | 300s |
 | Peak RAM (agent only) | ~53 MB | 150 MB |
 | Sustained CPU | 1–3% | 20% |
 | Part C alone | < 1s | 30s |
 
+Parallel mode (default) runs Part C and Part A concurrently, saving 1–31s
+depending on network conditions. The variance is explained by bot-detection
+sites (Cloudflare, JioSaavn) that either respond quickly with a challenge page
+or stall until the 20s timeout — the latter case benefits most from parallelism
+since Part C runs during the wait at no extra cost.
+
 ## Known Limitations
 
 - Playwright not usable on Ubuntu 26.04 — Selenium is the correct replacement.
-- Firefox snap binary path auto-detected but depends on snap revisions present.
-- Bot-detection sites (JioSaavn, YouTube) always BLOCKED in headless mode.
-- JS-heavy SPAs (JioCinema) render empty body — title used as secondary signal.
-- No parallel execution for Part B — GUI app launches must be isolated.
+- Firefox snap binary path auto-detected but depends on snap revisions present
+  on the machine; works across all tested snap revisions.
+- Bot-detection sites (JioSaavn, YouTube) always BLOCKED in headless mode —
+  marked `bot_detection_expected: true` in YAML so the agent treats this as
+  expected behaviour, not a failure.
+- Cloudflare and JioSaavn use bot-detection infrastructure that
+  non-deterministically either serves a challenge page (BLOCKED) or stalls the
+  connection until timeout (FAIL). Both are correct agent responses — the agent
+  cannot predict which will occur before the connection is made. A future
+  improvement would be treating timeouts on `bot_detection_expected` URLs as
+  BLOCKED rather than FAIL to avoid false regression alerts in trend analysis.
+- JS-heavy SPAs (JioCinema) render empty body in headless mode — page title
+  used as secondary signal to avoid false FAIL results.
+- No parallel execution for Part B — GUI app launches must be isolated
+  sequentially to avoid display and audio resource contention.
 - Desktop folder symlinks must be created once before Part C (see INSTALL.md).

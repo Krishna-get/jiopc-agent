@@ -208,7 +208,7 @@ Expected: `SUMMARY: 15/15 passed`
 python3 jiopc_agent.py --config jiopc-agent.yaml
 ```
 
-This takes approximately 90–110 seconds. Expected final output:
+This takes approximately 84–115 seconds (parallel mode default). Expected final output:
 
 ```
 SUMMARY: 23/26 passed
@@ -217,15 +217,17 @@ SUMMARY: 23/26 passed
 
 The 3 BLOCKED results are expected — JioSaavn, YouTube, and Cloudflare use
 bot detection that blocks headless browsers. This is not a failure.
+Cloudflare may occasionally time out instead of serving a challenge page,
+in which case it logs as FAIL — this is non-deterministic and not a bug.
 
 ---
 
 ## Step 9 — LLM analysis (optional)
 
 ```bash
-export LLM_BASE_URL=https://api.anthropic.com/v1
-export LLM_MODEL=claude-haiku-4-5-20251001
-export LLM_API_KEY=your_api_key_here
+export LLM_BASE_URL=https://api.groq.com/openai/v1
+export LLM_MODEL=llama3-8b-8192
+export LLM_API_KEY=your_groq_key_here
 
 python3 analyse.py --log ~/.local/share/jiopc/agent/test_run_<timestamp>.log
 ```
